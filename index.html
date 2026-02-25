@@ -349,16 +349,16 @@
     ];
     // ===== 水果类型定义 =====
     const FRUIT_TYPES = [
-      { name: 'apple', color: '#e74c3c', innerColor: '#f5d6ba', points: 1, radius: 32 },
-      { name: 'orange', color: '#f39c12', innerColor: '#ffeaa7', points: 1, radius: 30 },
-      { name: 'watermelon', color: '#27ae60', innerColor: '#ff6b6b', points: 2, radius: 40 },
-      { name: 'lemon', color: '#f1c40f', innerColor: '#fffde7', points: 1, radius: 26 },
-      { name: 'grape', color: '#9b59b6', innerColor: '#d4a5e8', points: 1, radius: 24 },
-      { name: 'kiwi', color: '#795548', innerColor: '#a4d65e', points: 1, radius: 28 },
-      { name: 'freeze', color: '#00bcd4', innerColor: '#e0f7fa', points: 3, radius: 34, special: 'freeze' },
+      { name: 'apple', color: '#e74c3c', innerColor: '#f5d6ba', glowColor: 'rgba(231,76,60,0.35)', points: 1, radius: 32 },
+      { name: 'orange', color: '#f39c12', innerColor: '#ffeaa7', glowColor: 'rgba(243,156,18,0.35)', points: 1, radius: 30 },
+      { name: 'watermelon', color: '#27ae60', innerColor: '#ff6b6b', glowColor: 'rgba(39,174,96,0.35)', points: 2, radius: 40 },
+      { name: 'lemon', color: '#f1c40f', innerColor: '#fffde7', glowColor: 'rgba(241,196,15,0.35)', points: 1, radius: 26 },
+      { name: 'grape', color: '#9b59b6', innerColor: '#d4a5e8', glowColor: 'rgba(155,89,182,0.35)', points: 1, radius: 24 },
+      { name: 'kiwi', color: '#795548', innerColor: '#a4d65e', glowColor: 'rgba(121,85,72,0.35)', points: 1, radius: 28 },
+      { name: 'freeze', color: '#00bcd4', innerColor: '#e0f7fa', glowColor: 'rgba(0,188,212,0.4)', points: 3, radius: 34, special: 'freeze' },
     ];
     // ===== 游戏状态 =====
-    let canvas, ctx, gameWidth = 0, gameHeight = 0, dpr = 1;
+    let canvas, ctx, gameWidth = 0, gameHeight = 0, dpr = 1, canvasRect = null, bgCanvas = null;
     let gameState = 'menu', score = 0, highScore = parseInt(localStorage.getItem('fruitNinjaHighScore') || '0'), lives = CONFIG.maxLives;
     let combo = 0, lastComboTime = 0, lastSpawnTime = 0, animationId = null;
     let currentDifficulty = DIFFICULTY_LEVELS[0], slowMotionFactor = 1, slowMotionTimeout = null;
@@ -385,6 +385,8 @@
       canvas.width = gameWidth * dpr; canvas.height = gameHeight * dpr;
       canvas.style.width = gameWidth + 'px'; canvas.style.height = gameHeight + 'px';
       ctx.scale(dpr, dpr);
+      canvasRect = null;
+      bgCanvas = null;
     }
     function startGame() {
       soundManager.init();
@@ -478,8 +480,8 @@
     }
     // ===== 输入处理 =====
     function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (!canvasRect) canvasRect = canvas.getBoundingClientRect();
+      return { x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top };
     }
     function onSliceStart(e) {
       if (gameState !== 'playing') return;
@@ -611,17 +613,31 @@
       if (slowMotionFactor < 1) { ctx.fillStyle = 'rgba(0, 188, 212, 0.05)'; ctx.fillRect(0, 0, gameWidth, gameHeight); }
       drawParticles(); drawFruits(); drawSlices(); drawBladeTrail();
     }
+    function initBackground() {
+      bgCanvas = document.createElement('canvas');
+      bgCanvas.width = gameWidth;
+      bgCanvas.height = gameHeight;
+      const bgCtx = bgCanvas.getContext('2d');
+      bgCtx.strokeStyle = 'rgba(255, 255, 255, 0.02)'; bgCtx.lineWidth = 1;
+      const gridSize = 50;
+      bgCtx.beginPath();
+      for (let x = 0; x < gameWidth; x += gridSize) { bgCtx.moveTo(x + 0.5, 0); bgCtx.lineTo(x + 0.5, gameHeight); }
+      for (let y = 0; y < gameHeight; y += gridSize) { bgCtx.moveTo(0, y + 0.5); bgCtx.lineTo(gameWidth, y + 0.5); }
+      bgCtx.stroke();
+    }
     function drawBackground() {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)'; ctx.lineWidth = 1; const gridSize = 50;
-      for (let x = 0; x < gameWidth; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gameHeight); ctx.stroke(); }
-      for (let y = 0; y < gameHeight; y += gridSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gameWidth, y); ctx.stroke(); }
+      if (!bgCanvas) initBackground();
+      ctx.drawImage(bgCanvas, 0, 0, gameWidth, gameHeight);
     }
     function drawFruits() { fruits.forEach(fruit => { if (fruit.sliced) return; ctx.save(); ctx.translate(fruit.x, fruit.y); ctx.rotate(fruit.rotation); if (fruit.isBomb) drawBomb(fruit); else drawFruit(fruit); ctx.restore(); }); }
     function drawFruit(fruit) {
       const r = fruit.radius;
-      ctx.shadowColor = fruit.color; ctx.shadowBlur = 20;
+      const glowColor = (fruit.type && fruit.type.glowColor) ? fruit.type.glowColor : 'rgba(255,255,255,0.2)';
+      const glow = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 1.6);
+      glow.addColorStop(0, glowColor);
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = fruit.color; ctx.fill();
-      ctx.shadowBlur = 0;
       const gradient = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
       gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)'); gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
@@ -635,9 +651,11 @@
     }
     function drawBomb(bomb) {
       const r = bomb.radius;
-      ctx.shadowColor = '#ff3366'; ctx.shadowBlur = 30;
+      const bombGlow = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, r * 1.7);
+      bombGlow.addColorStop(0, 'rgba(255,51,102,0.4)');
+      bombGlow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.7, 0, Math.PI * 2); ctx.fillStyle = bombGlow; ctx.fill();
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = '#1a1a2e'; ctx.fill();
-      ctx.shadowBlur = 0;
       const gradient = ctx.createLinearGradient(-r, -r, r, r);
       gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)'); gradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
@@ -663,20 +681,22 @@
     function drawParticles() { particles.forEach(p => { ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0.5, p.radius * p.alpha), 0, Math.PI * 2); ctx.fill(); }); ctx.globalAlpha = 1; }
     function drawBladeTrail() {
       if (bladeTrail.length < 2) return;
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
-      for (let i = 1; i < bladeTrail.length; i++) {
-        const prev = bladeTrail[i - 1], curr = bladeTrail[i], progress = i / bladeTrail.length;
-        ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
-        const gradient = ctx.createLinearGradient(prev.x, prev.y, curr.x, curr.y);
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${progress * 0.3})`); gradient.addColorStop(1, `rgba(255, 255, 255, ${progress})`);
-        ctx.strokeStyle = gradient; ctx.lineWidth = progress * 12; ctx.stroke();
-      }
-      for (let i = 1; i < bladeTrail.length; i++) {
-        const prev = bladeTrail[i - 1], curr = bladeTrail[i], progress = i / bladeTrail.length;
-        ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(curr.x, curr.y);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${progress})`; ctx.lineWidth = progress * 3; ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
+      ctx.save();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const start = bladeTrail[0], end = bladeTrail[bladeTrail.length - 1];
+      const outerGrad = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+      outerGrad.addColorStop(0, 'rgba(255,255,255,0)');
+      outerGrad.addColorStop(1, 'rgba(255,255,255,0.25)');
+      ctx.beginPath(); ctx.moveTo(start.x, start.y);
+      for (let i = 1; i < bladeTrail.length; i++) ctx.lineTo(bladeTrail[i].x, bladeTrail[i].y);
+      ctx.strokeStyle = outerGrad; ctx.lineWidth = 12; ctx.stroke();
+      const innerGrad = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+      innerGrad.addColorStop(0, 'rgba(255,255,255,0)');
+      innerGrad.addColorStop(1, 'rgba(255,255,255,0.9)');
+      ctx.beginPath(); ctx.moveTo(start.x, start.y);
+      for (let i = 1; i < bladeTrail.length; i++) ctx.lineTo(bladeTrail[i].x, bladeTrail[i].y);
+      ctx.strokeStyle = innerGrad; ctx.lineWidth = 3; ctx.stroke();
+      ctx.restore();
     }
     function gameLoop() { update(); render(); animationId = requestAnimationFrame(gameLoop); }
     init();

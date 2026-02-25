@@ -247,6 +247,36 @@
     .difficulty-badge.show {
       opacity: 1;
     }
+    .sound-btn {
+      position: absolute;
+      bottom: 22px;
+      right: 20px;
+      width: 44px;
+      height: 44px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      cursor: pointer;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, transform 0.15s ease;
+    }
+    .sound-btn:active {
+      transform: scale(0.88);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .sound-btn svg {
+      width: 22px;
+      height: 22px;
+      fill: rgba(255, 255, 255, 0.75);
+      transition: fill 0.2s ease;
+      pointer-events: none;
+    }
+    .sound-btn.muted svg {
+      fill: rgba(255, 255, 255, 0.25);
+    }
   </style>
 </head>
 <body>
@@ -269,6 +299,14 @@
         <div class="life"></div>
       </div>
       <div class="difficulty-badge" id="difficultyBadge"></div>
+      <button class="sound-btn" id="soundBtn">
+        <svg id="soundOnIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+        <svg id="soundOffIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+        </svg>
+      </button>
     </div>
     <div class="combo-alert" id="comboAlert">COMBO x5!</div>
     <!-- 开始画面 -->
@@ -289,14 +327,19 @@
   <script>
     // ===== 音效系统 =====
     class SoundManager {
-      constructor() { this.ctx = null; this.initialized = false; }
+      constructor() { this.ctx = null; this.initialized = false; this.muted = localStorage.getItem('fruitNinjaMuted') === 'true'; }
       init() {
         if (this.initialized) return;
         try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.initialized = true; } 
         catch (e) { console.error("Web Audio API not supported"); }
       }
+      toggleMute() {
+        this.muted = !this.muted;
+        localStorage.setItem('fruitNinjaMuted', this.muted.toString());
+        updateSoundBtn();
+      }
       playSlice() {
-        if (!this.ctx) return; const now = this.ctx.currentTime;
+        if (!this.ctx || this.muted) return; const now = this.ctx.currentTime;
         const bufferSize = this.ctx.sampleRate * 0.1, buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate), data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
@@ -305,7 +348,7 @@
         noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); noise.start(now); noise.stop(now + 0.1);
       }
       playBomb() {
-        if (!this.ctx) return; const now = this.ctx.currentTime;
+        if (!this.ctx || this.muted) return; const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
         const bufferSize = this.ctx.sampleRate * 0.5, buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate), data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
@@ -315,13 +358,13 @@
         osc.connect(gain); noise.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.5); noise.start(now); noise.stop(now + 0.5);
       }
       playMiss() {
-        if (!this.ctx) return; const now = this.ctx.currentTime;
+        if (!this.ctx || this.muted) return; const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(150, now + 0.2);
         const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
         osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.2);
       }
       playCombo(level) {
-        if (!this.ctx) return; const now = this.ctx.currentTime;
+        if (!this.ctx || this.muted) return; const now = this.ctx.currentTime;
         const baseFreq = 600 + level * 50, osc = this.ctx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = baseFreq;
         const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
         osc.connect(gain); gain.connect(this.ctx.destination); osc.start(now); osc.stop(now + 0.1);
@@ -377,7 +420,23 @@
       canvas.addEventListener('touchstart', onTouchStart, { passive: false });
       canvas.addEventListener('touchmove', onTouchMove, { passive: false });
       canvas.addEventListener('touchend', onSliceEnd); canvas.addEventListener('touchcancel', onSliceEnd);
+      document.getElementById('soundBtn').addEventListener('click', () => { soundManager.toggleMute(); });
+      updateSoundBtn();
       requestAnimationFrame(gameLoop);
+    }
+    function updateSoundBtn() {
+      const btn = document.getElementById('soundBtn');
+      const onIcon = document.getElementById('soundOnIcon');
+      const offIcon = document.getElementById('soundOffIcon');
+      if (soundManager.muted) {
+        btn.classList.add('muted');
+        onIcon.style.display = 'none';
+        offIcon.style.display = 'block';
+      } else {
+        btn.classList.remove('muted');
+        onIcon.style.display = 'block';
+        offIcon.style.display = 'none';
+      }
     }
     function resizeCanvas() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);

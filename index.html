@@ -394,11 +394,16 @@
     const FRUIT_TYPES = [
       { name: 'apple',  color: '#e74c3c', innerColor: '#f5d6ba', glowColor: 'rgba(231,76,60,0.35)',  points: 1, radius: 36, image: 'apple'  },
       { name: 'orange', color: '#f39c12', innerColor: '#ffeaa7', glowColor: 'rgba(243,156,18,0.35)', points: 1, radius: 34, image: 'orange' },
+      { name: 'grape', color: '#e74c3c', innerColor: '#f5d6ba', glowColor: 'rgba(231,76,60,0.35)', points: 1, radius: 32, image: 'grape' },
+      { name: 'lemon', color: '#f39c12', innerColor: '#ffeaa7', glowColor: 'rgba(243,156,18,0.35)', points: 1, radius: 30, image: 'lemon' },
+      { name: 'watermelon', color: '#27ae60', innerColor: '#ff6b6b', glowColor: 'rgba(39,174,96,0.35)', points: 2, radius: 40, image: 'waterMelon' },
+      { name: 'kiwi', color: '#f1c40f', innerColor: '#fffde7', glowColor: 'rgba(241,196,15,0.35)', points: 1, radius: 26, image: 'kiwi' },
+      { name: 'freeze', color: '#00bcd4', innerColor: '#e0f7fa', glowColor: 'rgba(0,188,212,0.4)', points: 3, radius: 34, special: 'freeze', image: 'freeze' },
     ];
     // ===== 图片资源预加载 =====
     const IMAGES = {};
     function loadImages() {
-      ['apple', 'orange'].forEach(function(name) {
+      ['apple', 'orange', 'grape', 'lemon', 'waterMelon', 'kiwi'].forEach(function(name) {
         var img = new Image();
         img.src = 'assets/' + name + '.png';
         IMAGES[name] = img;

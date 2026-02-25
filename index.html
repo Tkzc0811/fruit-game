@@ -392,14 +392,18 @@
     ];
     // ===== 水果类型定义 =====
     const FRUIT_TYPES = [
-      { name: 'apple', color: '#e74c3c', innerColor: '#f5d6ba', glowColor: 'rgba(231,76,60,0.35)', points: 1, radius: 32 },
-      { name: 'orange', color: '#f39c12', innerColor: '#ffeaa7', glowColor: 'rgba(243,156,18,0.35)', points: 1, radius: 30 },
-      { name: 'watermelon', color: '#27ae60', innerColor: '#ff6b6b', glowColor: 'rgba(39,174,96,0.35)', points: 2, radius: 40 },
-      { name: 'lemon', color: '#f1c40f', innerColor: '#fffde7', glowColor: 'rgba(241,196,15,0.35)', points: 1, radius: 26 },
-      { name: 'grape', color: '#9b59b6', innerColor: '#d4a5e8', glowColor: 'rgba(155,89,182,0.35)', points: 1, radius: 24 },
-      { name: 'kiwi', color: '#795548', innerColor: '#a4d65e', glowColor: 'rgba(121,85,72,0.35)', points: 1, radius: 28 },
-      { name: 'freeze', color: '#00bcd4', innerColor: '#e0f7fa', glowColor: 'rgba(0,188,212,0.4)', points: 3, radius: 34, special: 'freeze' },
+      { name: 'apple',  color: '#e74c3c', innerColor: '#f5d6ba', glowColor: 'rgba(231,76,60,0.35)',  points: 1, radius: 36, image: 'apple'  },
+      { name: 'orange', color: '#f39c12', innerColor: '#ffeaa7', glowColor: 'rgba(243,156,18,0.35)', points: 1, radius: 34, image: 'orange' },
     ];
+    // ===== 图片资源预加载 =====
+    const IMAGES = {};
+    function loadImages() {
+      ['apple', 'orange'].forEach(function(name) {
+        var img = new Image();
+        img.src = 'assets/' + name + '.png';
+        IMAGES[name] = img;
+      });
+    }
     // ===== 游戏状态 =====
     let canvas, ctx, gameWidth = 0, gameHeight = 0, dpr = 1, canvasRect = null, bgCanvas = null;
     let gameState = 'menu', score = 0, highScore = parseInt(localStorage.getItem('fruitNinjaHighScore') || '0'), lives = CONFIG.maxLives;
@@ -408,6 +412,7 @@
     let fruits = [], slices = [], particles = [], bladeTrail = [], isSlicing = false, sliceStart = null;
     // ===== 初始化 =====
     function init() {
+      loadImages();
       canvas = document.getElementById('gameCanvas'); ctx = canvas.getContext('2d');
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
@@ -696,16 +701,17 @@
       glow.addColorStop(0, glowColor);
       glow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.beginPath(); ctx.arc(0, 0, r * 1.6, 0, Math.PI * 2); ctx.fillStyle = glow; ctx.fill();
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = fruit.color; ctx.fill();
-      const gradient = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
-      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)'); gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
-      if (fruit.type && fruit.type.special === 'freeze') {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r + 5, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; for (let i = 0; i < 6; i++) { const angle = (i / 6) * Math.PI * 2; ctx.beginPath(); ctx.arc(Math.cos(angle) * (r - 10), Math.sin(angle) * (r - 10), 3, 0, Math.PI * 2); ctx.fill(); }
+      const img = fruit.type && fruit.type.image && IMAGES[fruit.type.image];
+      if (img && img.complete && img.naturalWidth > 0) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+        ctx.drawImage(img, -r, -r, r * 2, r * 2);
+        ctx.restore();
       } else {
-        ctx.fillStyle = '#27ae60'; ctx.beginPath(); ctx.ellipse(0, -r - 5, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#2ecc71'; ctx.beginPath(); ctx.ellipse(5, -r - 2, 6, 4, Math.PI / 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = fruit.color; ctx.fill();
+        const gradient = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)'); gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.1)'); gradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = gradient; ctx.fill();
       }
     }
     function drawBomb(bomb) {
@@ -728,12 +734,23 @@
       slices.forEach(slice => {
         ctx.save(); ctx.globalAlpha = slice.alpha; ctx.translate(slice.x, slice.y); ctx.rotate(slice.rotation);
         const r = slice.radius;
-        ctx.beginPath();
-        if (slice.side < 0) ctx.arc(0, 0, r, slice.angle + Math.PI/2, slice.angle - Math.PI/2); else ctx.arc(0, 0, r, slice.angle - Math.PI/2, slice.angle + Math.PI/2);
-        ctx.closePath(); ctx.fillStyle = slice.color; ctx.fill();
-        ctx.beginPath();
-        if (slice.side < 0) ctx.arc(0, 0, r * 0.85, slice.angle + Math.PI/2, slice.angle - Math.PI/2); else ctx.arc(0, 0, r * 0.85, slice.angle - Math.PI/2, slice.angle + Math.PI/2);
-        ctx.closePath(); ctx.fillStyle = slice.innerColor; ctx.fill();
+        const img = slice.type && slice.type.image && IMAGES[slice.type.image];
+        if (img && img.complete && img.naturalWidth > 0) {
+          ctx.save();
+          ctx.beginPath();
+          if (slice.side < 0) ctx.arc(0, 0, r, slice.angle + Math.PI / 2, slice.angle - Math.PI / 2);
+          else ctx.arc(0, 0, r, slice.angle - Math.PI / 2, slice.angle + Math.PI / 2);
+          ctx.closePath(); ctx.clip();
+          ctx.drawImage(img, -r, -r, r * 2, r * 2);
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          if (slice.side < 0) ctx.arc(0, 0, r, slice.angle + Math.PI/2, slice.angle - Math.PI/2); else ctx.arc(0, 0, r, slice.angle - Math.PI/2, slice.angle + Math.PI/2);
+          ctx.closePath(); ctx.fillStyle = slice.color; ctx.fill();
+          ctx.beginPath();
+          if (slice.side < 0) ctx.arc(0, 0, r * 0.85, slice.angle + Math.PI/2, slice.angle - Math.PI/2); else ctx.arc(0, 0, r * 0.85, slice.angle - Math.PI/2, slice.angle + Math.PI/2);
+          ctx.closePath(); ctx.fillStyle = slice.innerColor; ctx.fill();
+        }
         ctx.restore();
       });
     }

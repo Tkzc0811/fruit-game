@@ -457,7 +457,7 @@
         // 核心优化：垂直速度与高度计算
         // 目标：飞到屏幕高度的 50% 到 75% 位置（即屏幕中上部）
         // 使用公式 v = sqrt(2 * g * h)
-        const targetH = gameHeight * (0.7 + Math.random() * 0.25); // 目标高度：屏幕的 50% ~ 75%
+        const targetH = gameHeight * (0.8 + Math.random() * 0.25); // 目标高度：屏幕的 50% ~ 75%
         let baseVy = Math.sqrt(2 * CONFIG.gravity * targetH);
         // 难度修正：让后期稍微快一点点，但不影响高度太大
         // 减少难度对速度的直接影响，保持舒缓节奏
